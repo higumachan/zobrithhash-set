@@ -1,4 +1,4 @@
-use zobristhash::ZobristHashSet;
+use zobristhash_set::ZobristHashSet;
 
 #[derive(Hash, Eq, PartialEq, Copy, Clone, Debug)]
 enum Piece {
