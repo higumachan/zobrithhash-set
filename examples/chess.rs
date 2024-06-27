@@ -1,4 +1,4 @@
-use zobristhash::ZobristHash;
+use zobristhash::ZobristHashSet;
 
 #[derive(Hash, Eq, PartialEq, Copy, Clone, Debug)]
 enum Piece {
@@ -21,14 +21,14 @@ const BOARD_SIZE: usize = 8;
 #[derive(Debug)]
 struct ChessBoard {
     board: [[Option<Piece>; BOARD_SIZE]; BOARD_SIZE],
-    zobrist: ZobristHash<(usize, usize, Piece)>,
+    zobrist: ZobristHashSet<(usize, usize, Piece)>,
 }
 
 impl ChessBoard {
     pub fn new() -> Self {
         ChessBoard {
             board: [[None; BOARD_SIZE]; BOARD_SIZE],
-            zobrist: ZobristHash::empty(),
+            zobrist: ZobristHashSet::empty(),
         }
     }
 
