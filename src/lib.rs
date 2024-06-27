@@ -7,11 +7,11 @@ use std::hash::{Hash, Hasher};
 
 /// Implementation of [Zobrist hashing](https://en.wikipedia.org/wiki/Zobrist_hashing)
 ///
-/// This Zobrist hash implementation does not use a table to maintain a context-less design. FxHash is sufficiently fast, but if you want to achieve even higher speeds, consider implementing a version that uses a table.
+/// This Zobrist hash implementation does not use a table to maintain a context-less design. `FxHash` is sufficiently fast, but if you want to achieve even higher speeds, consider implementing a version that uses a table.
 ///
 /// An example implementation of a hash representing a chessboard is shown below
 /// ```rust
-/// use zobristhash::ZobristHashSet;
+/// use zobristhash_set::ZobristHashSet;
 ///
 /// #[derive(Hash, Eq, PartialEq, Copy, Clone, Debug)]
 /// enum Piece {
