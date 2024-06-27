@@ -97,8 +97,8 @@ use std::hash::{Hash, Hasher};
 /// let hash_after_move = board.hash();
 /// assert_ne!(initial_hash, hash_after_move);
 ///
-/// // 元に戻して初期盤面と同じハッシュになることを確認
-/// board.set_piece(1, 0, Some(Piece::WhitePawn)); // 白ポーンを戻す
+/// // Confirm that resetting the board results in the same hash as the initial board
+/// board.set_piece(1, 0, Some(Piece::WhitePawn)); // Restore the white pawn
 /// let hash_after_reset = board.hash();
 /// assert_eq!(initial_hash, hash_after_reset);
 /// ```
