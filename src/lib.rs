@@ -1,24 +1,122 @@
+mod copiable_hash;
+
+#[cfg(all(debug_assertions, feature = "check_set_behavior"))]
+use crate::copiable_hash::CopiableHash;
 use rustc_hash::FxHasher;
-use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
 
-#[derive(Default, Copy, Clone, Debug)]
+/// Implementation of Zobrist hash
+///
+/// This Zobrist hash implementation does not use a table to maintain a context-less design. FxHash is sufficiently fast, but if you want to achieve even higher speeds, consider implementing a version that uses a table.
+///
+/// An example implementation of a hash representing a chessboard is shown below
+/// ```rust
+/// use zobristhash::ZobristHash;
+///
+/// #[derive(Hash, Eq, PartialEq, Copy, Clone, Debug)]
+/// enum Piece {
+///     WhitePawn,
+///     WhiteKnight,
+///     WhiteBishop,
+///     WhiteRook,
+///     WhiteQueen,
+///     WhiteKing,
+///     BlackPawn,
+///     BlackKnight,
+///     BlackBishop,
+///     BlackRook,
+///     BlackQueen,
+///     BlackKing,
+/// }
+///
+/// const BOARD_SIZE: usize = 8;
+///
+/// #[derive(Debug)]
+/// struct ChessBoard {
+///     board: [[Option<Piece>; BOARD_SIZE]; BOARD_SIZE],
+///     zobrist: ZobristHash<(usize, usize, Piece)>,
+/// }
+///
+/// impl ChessBoard {
+///     pub fn new() -> Self {
+///         ChessBoard {
+///             board: [[None; BOARD_SIZE]; BOARD_SIZE],
+///             zobrist: ZobristHash::empty(),
+///         }
+///     }
+///
+///     pub fn set_piece(&mut self, x: usize, y: usize, piece: Option<Piece>) {
+///         if let Some(old_piece) = self.board[x][y] {
+///             self.zobrist.remove(&(x, y, old_piece));
+///         }
+///         if let Some(new_piece) = piece {
+///             self.zobrist.add(&(x, y, new_piece));
+///         }
+///         self.board[x][y] = piece;
+///     }
+///
+///     pub fn initialize(&mut self) {
+/// #         self.set_piece(0, 0, Some(Piece::WhiteRook));
+/// #         self.set_piece(0, 1, Some(Piece::WhiteKnight));
+/// #         self.set_piece(0, 2, Some(Piece::WhiteBishop));
+/// #         self.set_piece(0, 3, Some(Piece::WhiteQueen));
+/// #         self.set_piece(0, 4, Some(Piece::WhiteKing));
+/// #         self.set_piece(0, 5, Some(Piece::WhiteBishop));
+/// #         self.set_piece(0, 6, Some(Piece::WhiteKnight));
+/// #         self.set_piece(0, 7, Some(Piece::WhiteRook));
+/// #         for i in 0..BOARD_SIZE {
+/// #             self.set_piece(1, i, Some(Piece::WhitePawn));
+/// #         }
+/// #
+/// #         self.set_piece(7, 0, Some(Piece::BlackRook));
+/// #         self.set_piece(7, 1, Some(Piece::BlackKnight));
+/// #         self.set_piece(7, 2, Some(Piece::BlackBishop));
+/// #         self.set_piece(7, 3, Some(Piece::BlackQueen));
+/// #         self.set_piece(7, 4, Some(Piece::BlackKing));
+/// #         self.set_piece(7, 5, Some(Piece::BlackBishop));
+/// #         self.set_piece(7, 6, Some(Piece::BlackKnight));
+/// #         self.set_piece(7, 7, Some(Piece::BlackRook));
+/// #         for i in 0..BOARD_SIZE {
+/// #             self.set_piece(6, i, Some(Piece::BlackPawn));
+/// #         }
+///     }
+///
+///     pub fn hash(&self) -> u64 {
+///         self.zobrist.into()
+///     }
+/// }
+///
+/// let mut board = ChessBoard::new();
+/// board.initialize();
+///
+/// let initial_hash = board.hash();
+///
+/// assert_ne!(initial_hash, 0);
+///
+/// board.set_piece(1, 0, None);
+/// let hash_after_move = board.hash();
+/// assert_ne!(initial_hash, hash_after_move);
+///
+/// // 元に戻して初期盤面と同じハッシュになることを確認
+/// board.set_piece(1, 0, Some(Piece::WhitePawn)); // 白ポーンを戻す
+/// let hash_after_reset = board.hash();
+/// assert_eq!(initial_hash, hash_after_reset);
+/// ```
+#[derive(Default, Clone, Copy, Debug)]
 pub struct ZobristHash<E> {
     hash: u64,
     _data: std::marker::PhantomData<E>,
-    #[cfg(debug_assertions)]
-    checker: Option<*mut HashSet<E>>,
+    #[cfg(all(debug_assertions, feature = "check_set_behavior"))]
+    checker: Option<CopiableHash<E>>,
 }
 
 impl<E> ZobristHash<E> {
     pub fn empty() -> Self {
-        let hashset = Box::new(HashSet::new());
-        let ptr = Box::into_raw(hashset);
         Self {
             hash: 0,
             _data: std::marker::PhantomData,
             #[cfg(debug_assertions)]
-            checker: Some(ptr),
+            checker: Some(CopiableHash::empty()),
         }
     }
 }
@@ -40,37 +138,38 @@ impl<E> From<ZobristHash<E>> for u64 {
     }
 }
 
-#[cfg(not(debug_assertions))]
+#[cfg(not(all(debug_assertions, feature = "check_set_behavior")))]
 impl<E: Hash + Clone> ZobristHash<E> {
     pub fn add(&mut self, key: &E) {
-        let mut hasher = FxHasher::default();
-        key.hash(&mut hasher);
-        self.hash ^= hasher.finish();
+        add_remove_impl(self, key);
     }
 
     pub fn remove(&mut self, key: &E) {
-        self.add(key);
+        add_remove_impl(self, key);
     }
 }
 
-#[cfg(debug_assertions)]
+#[cfg(all(debug_assertions, feature = "check_set_behavior"))]
 impl<E: Hash + Eq + Clone> ZobristHash<E> {
     pub fn add(&mut self, key: &E) {
-        let hashset = unsafe { self.checker.map(|x| x.as_mut()).unwrap() };
-        assert!(hashset.map(|x| x.insert(key.clone())).unwrap_or(true));
-        let mut hasher = FxHasher::default();
-        key.hash(&mut hasher);
-        self.hash ^= hasher.finish();
+        assert!(self
+            .checker
+            .as_mut()
+            .map(|x| x.insert(key.clone()))
+            .unwrap_or(true));
+        add_remove_impl(self, key);
     }
 
     pub fn remove(&mut self, key: &E) {
-        let hashset = unsafe { self.checker.map(|x| x.as_mut()).unwrap() };
-        assert!(hashset.map(|x| x.remove(&key.clone())).unwrap_or(true));
-
-        let mut hasher = FxHasher::default();
-        key.hash(&mut hasher);
-        self.hash ^= hasher.finish();
+        assert!(self.checker.as_mut().map(|x| x.remove(key)).unwrap_or(true));
+        add_remove_impl(self, key);
     }
+}
+
+fn add_remove_impl<E: Hash>(zobrist_hash: &mut ZobristHash<E>, key: &E) {
+    let mut hasher = FxHasher::default();
+    key.hash(&mut hasher);
+    zobrist_hash.hash ^= hasher.finish();
 }
 
 #[cfg(test)]
@@ -112,16 +211,17 @@ mod tests {
 
     #[test]
     #[should_panic]
-    #[cfg(debug_assertions)]
+    #[cfg(all(debug_assertions, feature = "check_set_behavior"))]
     fn test_zobrist_hash_double_add_debug() {
         let mut hash = ZobristHash::empty();
         let key = 42;
         hash.add(&key);
         hash.add(&key);
     }
+
     #[test]
     #[should_panic]
-    #[cfg(debug_assertions)]
+    #[cfg(all(debug_assertions, feature = "check_set_behavior"))]
     fn test_zobrist_hash_empty_remove_debug() {
         let mut hash = ZobristHash::empty();
         let key = 42;

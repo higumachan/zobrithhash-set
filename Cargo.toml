@@ -5,3 +5,10 @@ edition = "2021"
 
 [dependencies]
 rustc-hash = "2"
+
+[dev-dependencies]
+rand = "0.8.5"
+
+[features]
+default = ["check_set_behavior"]
+check_set_behavior = []
