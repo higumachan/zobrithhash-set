@@ -115,7 +115,7 @@ impl<E> ZobristHashSet<E> {
         Self {
             hash: 0,
             _data: std::marker::PhantomData,
-            #[cfg(debug_assertions)]
+            #[cfg(all(debug_assertions, feature = "check_set_behavior"))]
             checker: Some(CopiableHash::empty()),
         }
     }
@@ -126,7 +126,7 @@ impl<E> From<u64> for ZobristHashSet<E> {
         Self {
             hash,
             _data: std::marker::PhantomData,
-            #[cfg(debug_assertions)]
+            #[cfg(all(debug_assertions, feature = "check_set_behavior"))]
             checker: None,
         }
     }
