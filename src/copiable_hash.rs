@@ -1,4 +1,5 @@
 use rustc_hash::FxHasher;
+use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
 
 const DEBUG_MAP_HASH_SIZE: usize = 1024 * 8;
@@ -14,6 +15,16 @@ pub(crate) struct CopiableHash<E> {
 impl<E> Default for CopiableHash<E> {
     fn default() -> Self {
         Self::empty()
+    }
+}
+
+impl<E: Hash + Eq> From<HashSet<E>> for CopiableHash<E> {
+    fn from(set: HashSet<E>) -> Self {
+        let mut hash = CopiableHash::empty();
+        for key in set {
+            hash.insert(key);
+        }
+        hash
     }
 }
 

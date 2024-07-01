@@ -1,8 +1,10 @@
+#[cfg(all(debug_assertions, feature = "check_set_behavior"))]
 mod copiable_hash;
 
 #[cfg(all(debug_assertions, feature = "check_set_behavior"))]
 use crate::copiable_hash::CopiableHash;
 use rustc_hash::FxHasher;
+use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
 
 /// Implementation of [Zobrist hashing](https://en.wikipedia.org/wiki/Zobrist_hashing)
@@ -149,6 +151,16 @@ impl<E: Hash + Clone> ZobristHashSet<E> {
     }
 }
 
+impl<E: Hash + Eq + Clone> From<HashSet<E>> for ZobristHashSet<E> {
+    fn from(set: HashSet<E>) -> Self {
+        let mut hash = ZobristHashSet::empty();
+        for key in set {
+            hash.add(&key);
+        }
+        hash
+    }
+}
+
 #[cfg(all(debug_assertions, feature = "check_set_behavior"))]
 impl<E: Hash + Eq + Clone> ZobristHashSet<E> {
     pub fn add(&mut self, key: &E) {
@@ -226,5 +238,26 @@ mod tests {
         let mut hash = ZobristHashSet::empty();
         let key = 42;
         hash.remove(&key);
+    }
+
+    #[test]
+    fn test_from_hashset() {
+        let mut set = HashSet::new();
+        set.insert(42);
+        set.insert(43);
+        let hash = ZobristHashSet::from(set);
+        assert_ne!(hash.hash, 0);
+
+        let mut set2 = ZobristHashSet::empty();
+        set2.add(&42);
+        set2.add(&43);
+        assert_eq!(hash.hash, set2.hash);
+
+        let mut set3 = ZobristHashSet::empty();
+        set3.add(&42);
+        set3.add(&43);
+        set3.add(&435);
+        set3.remove(&435);
+        assert_eq!(hash.hash, set3.hash);
     }
 }
